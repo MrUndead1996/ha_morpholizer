@@ -36,4 +36,4 @@ jobs:
         with:
           python-version: "3.14"
       - run: uv sync --locked --group integration
-      - run: uv run --group integration pytest tests/test_ha_runtime.py
+      - run: uv run --group integration pytest

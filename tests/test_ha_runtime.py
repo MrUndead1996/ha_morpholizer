@@ -90,6 +90,7 @@ def test_message_forwarding_uses_chat_log_id_and_preserves_result(tmp_path: Path
         with (
             patch.object(er, "async_get", return_value=registry),
             patch.object(conversation, "async_get_agent", return_value=object()),
+            patch.object(conversation, "async_handle_intents", new=AsyncMock(return_value=None)),
             patch.object(
                 conversation, "async_converse", new=AsyncMock(return_value=result)
             ) as forward,
@@ -145,6 +146,7 @@ def test_real_dispatch_preserves_session_without_duplicate_messages(tmp_path: Pa
         registry = _registry_stub(downstream.entity_id, "test_platform")
         with (
             patch.object(er, "async_get", return_value=registry),
+            patch.object(conversation, "async_handle_intents", new=AsyncMock(return_value=None)),
             patch.object(MorpholizerConversationEntity, "async_write_ha_state"),
             patch.object(TestAgent, "async_write_ha_state"),
         ):
@@ -206,6 +208,7 @@ def test_missing_or_self_fallback_returns_error(tmp_path: Path, fallback: str | 
 
         with (
             patch.object(er, "async_get", return_value=registry),
+            patch.object(conversation, "async_handle_intents", new=AsyncMock(return_value=None)),
             patch.object(conversation, "async_get_agent", return_value=object()),
             patch.object(conversation, "async_converse", new=AsyncMock()) as forward,
         ):
@@ -318,6 +321,7 @@ def test_unknown_state_is_usable_when_registry_and_agent_exist(tmp_path: Path) -
 
         with (
             patch.object(er, "async_get", return_value=registry),
+            patch.object(conversation, "async_handle_intents", new=AsyncMock(return_value=None)),
             patch.object(conversation, "async_get_agent", return_value=object()),
             patch.object(
                 conversation, "async_converse", new=AsyncMock(return_value=result)

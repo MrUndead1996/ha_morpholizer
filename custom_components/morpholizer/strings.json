@@ -6,7 +6,7 @@
     "step": {
       "user": {
         "title": "Configure Morpholizer",
-        "description": "Choose the conversation agent that receives the unchanged user message.",
+        "description": "Choose the conversation agent for requests not handled by local Home Assistant intents.",
         "data": {
           "fallback_agent": "Fallback conversation agent"
         }
@@ -20,7 +20,7 @@
     "step": {
       "init": {
         "title": "Fallback agent",
-        "description": "Change the conversation agent that receives the unchanged user message.",
+        "description": "Change the conversation agent for requests not handled by local Home Assistant intents.",
         "data": {
           "fallback_agent": "Fallback conversation agent"
         }

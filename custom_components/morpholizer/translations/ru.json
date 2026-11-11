@@ -6,7 +6,7 @@
     "step": {
       "user": {
         "title": "Настройка Morpholizer",
-        "description": "Выберите conversation-агент, которому без изменений передавать сообщение пользователя.",
+        "description": "Выберите разговорный агент для запросов, не обработанных локальными интентами Home Assistant.",
         "data": {
           "fallback_agent": "Резервный conversation-агент"
         }
@@ -20,7 +20,7 @@
     "step": {
       "init": {
         "title": "Резервный агент",
-        "description": "Измените conversation-агент, которому без изменений передаётся сообщение пользователя.",
+        "description": "Измените разговорный агент для запросов, не обработанных локальными интентами Home Assistant.",
         "data": {
           "fallback_agent": "Резервный conversation-агент"
         }
