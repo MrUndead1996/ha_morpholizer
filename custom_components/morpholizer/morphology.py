@@ -25,6 +25,29 @@ class Morphology:
         # would put ``self`` in a process-global cache and retain analyzers
         # after an integration reload.
         self._cached_analyze = lru_cache(maxsize=4096)(self._analyze_uncached)
+        self._cached_forms = lru_cache(maxsize=4096)(self._forms_uncached)
+
+    def nominal_forms(self, word: str) -> tuple[str, ...]:
+        """Known noun/adjective forms only; never predict a typo's paradigm."""
+        return self._cached_forms(word)
+
+    def _forms_uncached(self, word: str) -> tuple[str, ...]:
+        with self._lock:
+            parses = self._analyzer.parse(word)
+            forms = {word}
+            for parse in parses:
+                if (
+                    not parse.is_known
+                    or parse.score < 0.05
+                    or parse.tag.POS not in {"NOUN", "ADJF", "ADJS", "COMP"}
+                ):
+                    continue
+                for form in parse.lexeme:
+                    if form.tag.POS == parse.tag.POS:
+                        forms.add(str(form.word))
+                    if len(forms) > 64:
+                        return (word,)
+            return tuple(sorted(forms))
 
     def analyze(self, word: str) -> tuple[WordAnalysis, ...]:
         """Return analyses ordered by pymorphy's confidence, cached by input."""

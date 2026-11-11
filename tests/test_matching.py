@@ -51,6 +51,22 @@ def test_fuzzy_is_disabled_by_default() -> None:
     assert result.text == result.original_text
 
 
+@pytest.mark.parametrize("text", ["что со стиралной машинкой?", "Включи стиралную машинку"])
+def test_typo_and_inflection_are_combined(fuzzy_normalizer: Normalizer, text: str) -> None:
+    candidates = (NameCandidate("washer", "Стиральная машинка"),)
+    result = fuzzy_normalizer.normalize(text, candidates)
+    expected = (
+        "что со Стиральная машинка?" if text.startswith("что") else "Включи Стиральная машинка"
+    )
+    assert result.text == expected
+    assert len(result.replacements) == 1
+    decision = result.replacements[0]
+    assert decision.method == "fuzzy"
+    assert text[slice(*decision.span)] == decision.source
+    assert fuzzy_normalizer.normalize(result.text, candidates).text == expected
+    assert Normalizer(Morphology()).normalize(text, candidates).text == text
+
+
 def test_long_one_token_typo_records_original_span_and_is_idempotent(
     fuzzy_normalizer: Normalizer,
 ) -> None:

@@ -375,6 +375,7 @@ class Normalizer:
                 ):
                     continue
                 safe = True
+                comparison_words = list(target.tokens)
                 for n in changed:
                     source = phrase[n].value
                     if len(source) < 6 or len(target.tokens[n]) < 6:
@@ -389,8 +390,6 @@ class Normalizer:
                         for a in self._morphology.analyze(target_word)
                         if a.known and a.score >= 0.05
                     )
-                    # Both ends must be safe nominal readings. Distinct known
-                    # lemmas are not spelling variants (машина != машинка).
                     if (
                         _unsafe_lexical_reading(analyses)
                         or _unsafe_lexical_reading(target_analyses)
@@ -398,13 +397,33 @@ class Normalizer:
                     ):
                         safe = False
                         break
+                    if analyses and target_analyses:
+                        # A verified inflection is not a spelling error. Keep
+                        # it in the comparison rather than charging its ending.
+                        comparison_words[n] = _fold(source)
+                    elif not analyses and target_analyses:
+                        # Generate forms from the KNOWN target, not guessed
+                        # parses of the typo (стиралной is guessed as a noun).
+                        forms = tuple(
+                            _fold(form)
+                            for form in self._morphology.nominal_forms(target_word)
+                            if len(form) >= 6 and _cyrillic(form)
+                        )
+                        comparisons += len(forms)
+                        if comparisons > MAX_COMPARISONS:
+                            return [_resource_limit_decision(text)], []
+                        if forms:
+                            comparison_words[n] = max(
+                                forms,
+                                key=lambda form: (normalized_similarity(_fold(source), form), form),
+                            )
                 if not safe:
                     continue
                 comparisons += 1
                 if comparisons > MAX_COMPARISONS:
                     return [_resource_limit_decision(text)], []
                 left = " ".join(source_words)
-                right = " ".join(target.tokens)
+                right = " ".join(comparison_words)
                 score = normalized_similarity(left, right)
                 found.append((i, i + count, target.candidate, score))
         # Collapse aliases by entity before measuring confidence. A name shared
