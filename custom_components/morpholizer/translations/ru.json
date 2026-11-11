@@ -1,0 +1,33 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Morpholizer уже настроен."
+    },
+    "step": {
+      "user": {
+        "title": "Настройка Morpholizer",
+        "description": "Выберите conversation-агент, которому без изменений передавать сообщение пользователя.",
+        "data": {
+          "fallback_agent": "Резервный conversation-агент"
+        }
+      }
+    },
+    "error": {
+      "invalid_agent": "Выберите доступный conversation-агент, отличный от Morpholizer."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Резервный агент",
+        "description": "Измените conversation-агент, которому без изменений передаётся сообщение пользователя.",
+        "data": {
+          "fallback_agent": "Резервный conversation-агент"
+        }
+      }
+    },
+    "error": {
+      "invalid_agent": "Выберите доступный conversation-агент, отличный от Morpholizer."
+    }
+  }
+}

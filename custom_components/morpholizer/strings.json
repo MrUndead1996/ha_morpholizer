@@ -1,0 +1,33 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Morpholizer is already configured."
+    },
+    "step": {
+      "user": {
+        "title": "Configure Morpholizer",
+        "description": "Choose the conversation agent that receives the unchanged user message.",
+        "data": {
+          "fallback_agent": "Fallback conversation agent"
+        }
+      }
+    },
+    "error": {
+      "invalid_agent": "Select an available conversation agent other than Morpholizer."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Fallback agent",
+        "description": "Change the conversation agent that receives the unchanged user message.",
+        "data": {
+          "fallback_agent": "Fallback conversation agent"
+        }
+      }
+    },
+    "error": {
+      "invalid_agent": "Select an available conversation agent other than Morpholizer."
+    }
+  }
+}

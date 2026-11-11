@@ -1,0 +1,12 @@
+{
+  "domain": "morpholizer",
+  "name": "Morpholizer",
+  "version": "0.0.0",
+  "documentation": "https://github.com/MrUndead1996/ha_morpholizer",
+  "issue_tracker": "https://github.com/MrUndead1996/ha_morpholizer/issues",
+  "codeowners": ["@MrUndead1996"],
+  "config_flow": true,
+  "dependencies": ["conversation"],
+  "integration_type": "service",
+  "iot_class": "calculated"
+}
