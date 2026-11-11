@@ -1,0 +1,166 @@
+[
+  {
+    "id": "inflected feminine noun and adjective",
+    "input": "Что со стиральной машинкой?",
+    "candidates": [["switch.washer", "Стиральная машинка"]],
+    "expected": "Что со Стиральная машинка?",
+    "replacement_count": 1
+  },
+  {
+    "id": "plural and several mentions",
+    "input": "Включи лампы и выключи лампами",
+    "candidates": [["light.lamp", "Лампа"]],
+    "expected": "Включи Лампа и выключи Лампа",
+    "replacement_count": 2
+  },
+  {
+    "id": "preserve verbs negation numbers and punctuation",
+    "input": "Не включай стиральной машинкой 2 раза!",
+    "candidates": [["switch.washer", "Стиральная машинка"]],
+    "expected": "Не включай Стиральная машинка 2 раза!",
+    "replacement_count": 1
+  },
+  {
+    "id": "separate entities preserve all inter-span text",
+    "input": "Не меняй лампой, а спроси: что со стиральной машинкой? Уровень 25%.",
+    "candidates": [["light.lamp", "Лампа"], ["switch.washer", "Стиральная машинка"]],
+    "expected": "Не меняй Лампа, а спроси: что со Стиральная машинка? Уровень 25%.",
+    "replacement_count": 2
+  },
+  {
+    "id": "distinct lemmas remain distinct",
+    "input": "Покажи машину",
+    "candidates": [["switch.washer", "Стиральная машинка"]],
+    "expected": "Покажи машину",
+    "replacement_count": 0
+  },
+  {
+    "id": "diminutive and base noun are different lemmas",
+    "input": "Что с машинкой?",
+    "candidates": [["switch.washer", "Машина"]],
+    "expected": "Что с машинкой?",
+    "replacement_count": 0
+  },
+  {
+    "id": "explicit diminutive alias enables its own inflections",
+    "input": "Что с машинкой?",
+    "candidates": [["switch.washer", "Машина"], ["switch.washer", "Машинка"]],
+    "expected": "Что с Машинка?",
+    "replacement_count": 1
+  },
+  {
+    "id": "ambiguous entities are not arbitrarily selected",
+    "input": "Включи лампу",
+    "candidates": [["light.one", "Лампа"], ["light.two", "Лампа"]],
+    "expected": "Включи лампу",
+    "replacement_count": 0,
+    "reason": "ambiguous_candidates"
+  },
+  {
+    "id": "exact Latin brand and device number are preserved",
+    "input": "Включи Philips Hue 2",
+    "candidates": [["light.hue", "Philips Hue"]],
+    "expected": "Включи Philips Hue 2",
+    "replacement_count": 0
+  },
+  {
+    "id": "yo and e inflection match",
+    "input": "Покажи елкой",
+    "candidates": [["light.tree", "Ёлка"]],
+    "expected": "Покажи Ёлка",
+    "replacement_count": 1
+  },
+  {
+    "id": "maximal phrase prevents shorter subspan replacement",
+    "input": "Включи умную лампой",
+    "candidates": [["light.lamp", "Лампа"], ["light.smart", "Умная лампа"]],
+    "expected": "Включи Умная лампа",
+    "replacement_count": 1
+  },
+  {
+    "id": "mixed Latin brand and numeric parameter are preserved",
+    "input": "Включи лампы Xiaomi 2",
+    "candidates": [["light.lamp", "Лампа Xiaomi 2"]],
+    "expected": "Включи Лампа Xiaomi 2",
+    "replacement_count": 1
+  },
+  {
+    "id": "hyphen is not interchangeable with phrase whitespace",
+    "input": "Включи лампа-2",
+    "candidates": [["light.numbered", "Лампа 2"]],
+    "expected": "Включи лампа-2",
+    "replacement_count": 0
+  },
+  {
+    "id": "matching hyphenated name preserves model number",
+    "input": "Включи лампы-2",
+    "candidates": [["light.numbered", "Лампа-2"]],
+    "expected": "Включи Лампа-2",
+    "replacement_count": 1
+  },
+  {
+    "id": "word prefix does not match a shorter entity name",
+    "input": "Включи подлампой",
+    "candidates": [["light.lamp", "Лампа"]],
+    "expected": "Включи подлампой",
+    "replacement_count": 0
+  },
+  {
+    "id": "exact alias takes priority over morphological competitor",
+    "input": "Включи лампе",
+    "candidates": [["light.alias", "лампе"], ["light.lamp", "Лампа"]],
+    "expected": "Включи лампе",
+    "replacement_count": 0
+  },
+  {
+    "id": "ambiguous maximal phrase protects shorter subspan",
+    "input": "Включи умную лампой",
+    "candidates": [["light.smart.one", "Умная лампа"], ["light.smart.two", "Умная лампа"], ["light.lamp", "Лампа"]],
+    "expected": "Включи умную лампой",
+    "replacement_count": 0,
+    "reason": "ambiguous_candidates"
+  },
+  {
+    "id": "unique e spelling restores actual yo alias",
+    "input": "Покажи елка",
+    "candidates": [["light.tree", "Ёлка"]],
+    "expected": "Покажи Ёлка",
+    "replacement_count": 1
+  },
+  {
+    "id": "yo and e collision remains ambiguous",
+    "input": "Включи все",
+    "candidates": [["switch.all", "Все"], ["switch.everything", "Всё"]],
+    "expected": "Включи все",
+    "replacement_count": 0
+  },
+  {
+    "id": "command verb reading is not treated as noun mention",
+    "input": "Стали выключи",
+    "candidates": [["sensor.steel", "Сталь"]],
+    "expected": "Стали выключи",
+    "replacement_count": 0
+  },
+  {
+    "id": "competing canonical names for one entity are refused",
+    "input": "Включи лампой",
+    "candidates": [["light.lamp", "Лампа"], ["light.lamp", "Лампы"]],
+    "expected": "Включи лампой",
+    "replacement_count": 0
+  },
+  {
+    "id": "credible noun and verb readings explain abstention",
+    "input": "Проверь пила",
+    "candidates": [["switch.saw", "Пилы"]],
+    "expected": "Проверь пила",
+    "replacement_count": 0,
+    "reason": "ambiguous_analysis"
+  },
+  {
+    "id": "overlapping equal-length morphology matches are refused",
+    "input": "Не включай кухонной лампой стола.",
+    "candidates": [["light.kitchen", "кухонная лампа"], ["light.table", "лампа стола"]],
+    "expected": "Не включай кухонной лампой стола.",
+    "replacement_count": 0
+  }
+]

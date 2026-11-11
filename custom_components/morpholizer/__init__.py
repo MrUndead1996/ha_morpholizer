@@ -1,11 +1,15 @@
 """Morpholizer integration runtime."""
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.typing import ConfigType
+from __future__ import annotations
 
-from .catalog import EntityCatalog
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.typing import ConfigType
+
+    from .catalog import EntityCatalog
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -15,6 +19,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Set up the conversation platform and reload when options change."""
+    from homeassistant.const import Platform
+
+    from .catalog import EntityCatalog
+
     catalog = EntityCatalog(hass)
     try:
         await catalog.async_start()
@@ -29,6 +37,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Unload the conversation platform, raising if it fails."""
+    from homeassistant.const import Platform
+
     await hass.config_entries.async_unload_platforms_or_raise(entry, (Platform.CONVERSATION,))
     catalog: EntityCatalog = entry.runtime_data
     catalog.async_stop()

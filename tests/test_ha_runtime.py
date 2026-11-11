@@ -233,7 +233,7 @@ def test_setup_registers_forwarding_and_reload_listener_and_unloads(
         reload_entry = AsyncMock()
         catalog = SimpleNamespace(async_start=AsyncMock(), async_stop=Mock())
         with (
-            patch("custom_components.morpholizer.EntityCatalog", return_value=catalog),
+            patch("custom_components.morpholizer.catalog.EntityCatalog", return_value=catalog),
             patch.object(hass.config_entries, "async_forward_entry_setups", forward),
             patch.object(hass.config_entries, "async_unload_platforms_or_raise", unload),
             patch.object(hass.config_entries, "async_reload", reload_entry),
@@ -273,7 +273,7 @@ def test_failed_or_cancelled_setup_stops_catalog(
             forward.side_effect = error
         entry = _entry()
         with (
-            patch("custom_components.morpholizer.EntityCatalog", return_value=catalog),
+            patch("custom_components.morpholizer.catalog.EntityCatalog", return_value=catalog),
             patch.object(hass.config_entries, "async_forward_entry_setups", forward),
             pytest.raises(type(error)),
         ):
