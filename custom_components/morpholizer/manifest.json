@@ -7,7 +7,7 @@
   "codeowners": ["@MrUndead1996"],
   "config_flow": true,
   "dependencies": ["conversation"],
-  "requirements": ["pymorphy3==2.0.6", "pymorphy3-dicts-ru==2.4.417150.4580142"],
+  "requirements": ["pymorphy3==2.0.6", "pymorphy3-dicts-ru==2.4.417150.4580142", "RapidFuzz==3.14.6"],
   "integration_type": "service",
   "iot_class": "calculated"
 }

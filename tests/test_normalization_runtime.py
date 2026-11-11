@@ -34,6 +34,7 @@ from custom_components.morpholizer.conversation import (
 from custom_components.morpholizer.conversation import (
     async_setup_entry as async_setup_conversation_entry,
 )
+from custom_components.morpholizer.matching import FuzzySettings
 from custom_components.morpholizer.morphology import Morphology
 from custom_components.morpholizer.normalizer import Normalizer
 
@@ -91,13 +92,18 @@ async def _catalog(hass: HomeAssistant, entity_id: str, name: str) -> EntityCata
     return catalog
 
 
-def test_real_local_intent_normalizes_name_and_dispatches_once(tmp_path: Path) -> None:
+@pytest.mark.parametrize("fuzzy_enabled", [False, True])
+def test_real_local_intent_normalizes_name_and_dispatches_once(
+    tmp_path: Path, fuzzy_enabled: bool
+) -> None:
     async def check(hass: HomeAssistant) -> None:
         catalog = await _catalog(hass, "switch.washer", "Стиральная машинка")
         entry = _entry()
         entry.runtime_data = catalog
         _ = catalog.snapshot
-        proxy = MorpholizerConversationEntity(entry, Normalizer(Morphology()))
+        proxy = MorpholizerConversationEntity(
+            entry, Normalizer(Morphology(), fuzzy=FuzzySettings(enabled=fuzzy_enabled))
+        )
         proxy.entity_id = "conversation.morpholizer"
         proxy.hass = hass
         await get_agent_manager(hass).async_setup_default_agent(DefaultAgent(hass))
@@ -121,7 +127,7 @@ def test_real_local_intent_normalizes_name_and_dispatches_once(tmp_path: Path) -
         ):
             result = await conversation.async_converse(
                 hass,
-                "Включи стиральную машинку",
+                "Включи стиралная машинка" if fuzzy_enabled else "Включи стиральную машинку",
                 None,
                 context,
                 language="ru",

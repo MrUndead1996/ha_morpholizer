@@ -1,6 +1,7 @@
 """Morpholizer conversation agent runtime."""
 
 import logging
+import math
 from dataclasses import dataclass, replace
 from typing import Literal
 
@@ -16,7 +17,18 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .catalog import CatalogSnapshot, EntityCatalog
-from .const import CONF_FALLBACK_AGENT, DOMAIN, ENTITY_NAME
+from .const import (
+    CONF_FALLBACK_AGENT,
+    CONF_FUZZY_ENABLED,
+    CONF_FUZZY_MARGIN,
+    CONF_FUZZY_SCORE_CUTOFF,
+    DOMAIN,
+    ENTITY_NAME,
+    FUZZY_DEFAULT_ENABLED,
+    FUZZY_DEFAULT_MARGIN,
+    FUZZY_DEFAULT_SCORE_CUTOFF,
+)
+from .matching import FuzzySettings
 from .morphology import Morphology
 from .normalizer import NameCandidate, Normalizer
 
@@ -36,13 +48,38 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the Morpholizer conversation agent entity."""
-    normalizer = await hass.async_add_executor_job(_load_normalizer)
+    settings = _entry_fuzzy_settings(entry.options)
+    # Keep the legacy no-argument construction path for old entries, whose
+    # effective settings are exactly the Normalizer defaults.
+    if settings == FuzzySettings():
+        normalizer = await hass.async_add_executor_job(_load_normalizer)
+    else:
+        normalizer = await hass.async_add_executor_job(_load_normalizer, settings)
     async_add_entities([MorpholizerConversationEntity(entry, normalizer)])
 
 
-def _load_normalizer() -> Normalizer:
+def _load_normalizer(settings: FuzzySettings | None = None) -> Normalizer:
     """Load the dictionaries away from the event loop."""
-    return Normalizer(Morphology())
+    return Normalizer(Morphology(), fuzzy=settings or FuzzySettings())
+
+
+def _entry_fuzzy_settings(options: dict[str, object]) -> FuzzySettings:
+    """Read settings defensively; corrupted options disable fuzzy matching."""
+    enabled = options.get(CONF_FUZZY_ENABLED, FUZZY_DEFAULT_ENABLED)
+    score = options.get(CONF_FUZZY_SCORE_CUTOFF, FUZZY_DEFAULT_SCORE_CUTOFF)
+    margin = options.get(CONF_FUZZY_MARGIN, FUZZY_DEFAULT_MARGIN)
+    if type(enabled) is not bool or isinstance(score, bool) or isinstance(margin, bool):
+        return FuzzySettings()
+    if not isinstance(score, (int, float)) or not isinstance(margin, (int, float)):
+        return FuzzySettings()
+    try:
+        score = float(score)
+        margin = float(margin)
+        if not math.isfinite(score) or not math.isfinite(margin):
+            return FuzzySettings()
+        return FuzzySettings(enabled, score, margin)
+    except TypeError, ValueError, OverflowError:
+        return FuzzySettings()
 
 
 class MorpholizerConversationEntity(ConversationEntity):

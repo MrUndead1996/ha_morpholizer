@@ -22,12 +22,16 @@
         "title": "Резервный агент",
         "description": "Измените разговорный агент для запросов, не обработанных локальными интентами Home Assistant.",
         "data": {
-          "fallback_agent": "Резервный conversation-агент"
+          "fallback_agent": "Резервный conversation-агент",
+          "fuzzy_enabled": "Включить нечёткий поиск названий объектов",
+          "fuzzy_score_cutoff": "Минимальная оценка нечёткого совпадения",
+          "fuzzy_margin": "Минимальный отрыв от следующего совпадения"
         }
       }
     },
     "error": {
-      "invalid_agent": "Выберите доступный conversation-агент, отличный от Morpholizer."
+      "invalid_agent": "Выберите доступный conversation-агент, отличный от Morpholizer.",
+      "invalid_fuzzy_settings": "Укажите допустимые параметры нечёткого поиска."
     }
   }
 }

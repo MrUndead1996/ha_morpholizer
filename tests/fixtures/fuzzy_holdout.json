@@ -1,0 +1,27 @@
+{
+  "note": "Frozen holdout, authored separately from development cases and not for threshold tuning. Synthetic curated typo/STT-like examples only; no real user recordings or transcripts were available.",
+  "cases": [
+    {"id":"holdout washer","input":"стиральная машнка","candidates":[["washer","Стиральная машинка"]],"expected":"Стиральная машинка","eligible":true},
+    {"id":"holdout bedside","input":"прикроватнная лампа","candidates":[["bed","Прикроватная лампа"]],"expected":"Прикроватная лампа","eligible":true},
+    {"id":"holdout office","input":"рабочй стол","candidates":[["desk","Рабочий стол"]],"expected":"Рабочий стол","eligible":true},
+    {"id":"holdout kitchen hood","input":"кухонная вытяжкка","candidates":[["hood","Кухонная вытяжка"]],"expected":"Кухонная вытяжка","eligible":true},
+    {"id":"holdout radiator","input":"батрея детской","candidates":[["radiator","Батарея детской"]],"expected":"Батарея детской","eligible":true},
+    {"id":"holdout entry light","input":"свет прихожй","candidates":[["entry","Свет прихожей"]],"expected":"Свет прихожей","eligible":true},
+    {"id":"holdout air purifier","input":"очиститль воздуха","candidates":[["purifier","Очиститель воздуха"]],"expected":"Очиститель воздуха","eligible":true},
+    {"id":"holdout smart plug","input":"умная розеткка","candidates":[["plug","Умная розетка"]],"expected":"Умная розетка","eligible":true},
+    {"id":"holdout tv","input":"телевизр зала","candidates":[["tv","Телевизор зала"]],"expected":"Телевизор зала","eligible":true},
+    {"id":"holdout fan","input":"потолочный вентилятр","candidates":[["fan","Потолочный вентилятор"]],"expected":"Потолочный вентилятор","eligible":true},
+    {"id":"holdout short ambiguity","input":"свет","candidates":[["a","Свет"],["b","Свет"]],"expected":"свет","eligible":false},
+    {"id":"holdout number","input":"розетка 4","candidates":[["plug","Розетка 5"]],"expected":"розетка 4","eligible":false},
+    {"id":"holdout latin brand","input":"телевизор Sony","candidates":[["tv","Телевизор Samsung"]],"expected":"телевизор Sony","eligible":false},
+    {"id":"holdout wrong room","input":"лампа кухни","candidates":[["lamp","Лампа спальни"]],"expected":"лампа кухни","eligible":false},
+    {"id":"holdout short typo","input":"свт","candidates":[["light","Свет"]],"expected":"свт","eligible":false},
+    {"id":"holdout verb","input":"открой","candidates":[["door","Отключи"]],"expected":"открой","eligible":false},
+    {"id":"holdout negation","input":"не включай свет","candidates":[["light","Свет"]],"expected":"не включай свет","eligible":false},
+    {"id":"holdout machine lemma","input":"машина","candidates":[["washer","Машинка"]],"expected":"машина","eligible":false},
+    {"id":"holdout punctuation","input":"умная-розетка","candidates":[["plug","Умная розетка"]],"expected":"умная-розетка","eligible":false},
+    {"id":"holdout duplicate aliases target","input":"Настольная лампа","candidates":[["lamp","Настольная лампа"],["lamp","Настольная лампочка"]],"expected":"Настольная лампа","eligible":false},
+    {"id":"holdout unrelated","input":"какая сегодня погода","candidates":[["weather","Погода завтра"]],"expected":"какая сегодня погода","eligible":false},
+    {"id":"holdout missing modifier","input":"кондиционер","candidates":[["ac","Кондиционер спальни"]],"expected":"кондиционер","eligible":false}
+  ]
+}

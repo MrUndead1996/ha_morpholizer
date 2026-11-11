@@ -22,12 +22,16 @@
         "title": "Fallback agent",
         "description": "Change the conversation agent for requests not handled by local Home Assistant intents.",
         "data": {
-          "fallback_agent": "Fallback conversation agent"
+          "fallback_agent": "Fallback conversation agent",
+          "fuzzy_enabled": "Enable fuzzy entity-name matching",
+          "fuzzy_score_cutoff": "Minimum fuzzy match score",
+          "fuzzy_margin": "Minimum score lead over the next match"
         }
       }
     },
     "error": {
-      "invalid_agent": "Select an available conversation agent other than Morpholizer."
+      "invalid_agent": "Select an available conversation agent other than Morpholizer.",
+      "invalid_fuzzy_settings": "Use valid fuzzy settings within the allowed ranges."
     }
   }
 }
