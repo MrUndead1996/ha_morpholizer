@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -231,23 +231,75 @@ def test_setup_registers_forwarding_and_reload_listener_and_unloads(
         forward = AsyncMock()
         unload = AsyncMock()
         reload_entry = AsyncMock()
+        catalog = SimpleNamespace(async_start=AsyncMock(), async_stop=Mock())
         with (
+            patch("custom_components.morpholizer.EntityCatalog", return_value=catalog),
             patch.object(hass.config_entries, "async_forward_entry_setups", forward),
             patch.object(hass.config_entries, "async_unload_platforms_or_raise", unload),
             patch.object(hass.config_entries, "async_reload", reload_entry),
         ):
             await async_setup_entry(hass, entry)
+            catalog.async_start.assert_awaited_once()
+            assert entry.runtime_data is catalog
             forward.assert_awaited_once_with(entry, (Platform.CONVERSATION,))
             assert entry._on_unload  # listener is registered for entry lifetime
 
             await async_unload_entry(hass, entry)
             unload.assert_awaited_once_with(entry, (Platform.CONVERSATION,))
+            assert entry.runtime_data is None
+            catalog.async_stop.assert_called_once()
 
             # Invoke the registered callback to prove options changes reload this entry.
             callbacks = entry.update_listeners
             assert callbacks
             await callbacks[0](hass, entry)
             reload_entry.assert_awaited_once_with(entry.entry_id)
+
+    _run(tmp_path, check)
+
+
+@pytest.mark.parametrize("phase", ["catalog", "platform"])
+@pytest.mark.parametrize("cancelled", [False, True])
+def test_failed_or_cancelled_setup_stops_catalog(
+    tmp_path: Path, phase: str, cancelled: bool
+) -> None:
+    async def check(hass: HomeAssistant) -> None:
+        error = asyncio.CancelledError() if cancelled else RuntimeError("setup failed")
+        catalog = SimpleNamespace(async_start=AsyncMock(), async_stop=Mock())
+        forward = AsyncMock()
+        if phase == "catalog":
+            catalog.async_start.side_effect = error
+        else:
+            forward.side_effect = error
+        entry = _entry()
+        with (
+            patch("custom_components.morpholizer.EntityCatalog", return_value=catalog),
+            patch.object(hass.config_entries, "async_forward_entry_setups", forward),
+            pytest.raises(type(error)),
+        ):
+            await async_setup_entry(hass, entry)
+        catalog.async_stop.assert_called_once()
+        assert entry.runtime_data is None
+
+    _run(tmp_path, check)
+
+
+def test_failed_unload_keeps_catalog_running(tmp_path: Path) -> None:
+    async def check(hass: HomeAssistant) -> None:
+        catalog = SimpleNamespace(async_stop=Mock())
+        entry = _entry()
+        entry.runtime_data = catalog
+        with (
+            patch.object(
+                hass.config_entries,
+                "async_unload_platforms_or_raise",
+                new=AsyncMock(side_effect=RuntimeError("platform still loaded")),
+            ),
+            pytest.raises(RuntimeError),
+        ):
+            await async_unload_entry(hass, entry)
+        catalog.async_stop.assert_not_called()
+        assert entry.runtime_data is catalog
 
     _run(tmp_path, check)
 
@@ -261,8 +313,6 @@ def test_config_flow_rejects_registry_entity_from_its_own_integration(
     tmp_path: Path,
 ) -> None:
     async def check(hass: HomeAssistant) -> None:
-        from unittest.mock import Mock
-
         own_id = "conversation.morpholizer"
         registry = _registry_stub(own_id, DOMAIN, entities={})
         hass.states.async_set(own_id, "on")
