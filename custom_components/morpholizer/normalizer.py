@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from itertools import pairwise
 from threading import RLock
+from typing import Literal
 
 from .matching import (
     MAX_CANDIDATES,
@@ -19,8 +20,16 @@ from .morphology import Morphology
 
 @dataclass(frozen=True, slots=True)
 class NameCandidate:
+    """A named target; entity_id also holds area/floor registry IDs for locations."""
+
     entity_id: str
     name: str
+    kind: Literal["entity", "area", "floor"] = "entity"
+
+    @property
+    def identity(self) -> tuple[str, str]:
+        """Registry IDs from different target kinds must never coalesce."""
+        return self.kind, self.entity_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,22 +120,22 @@ class Normalizer:
         self._morphology = morphology
         self._fuzzy = fuzzy if fuzzy is not None else FuzzySettings()
         self._prepared: tuple[_Prepared, ...] = ()
-        self._prepared_key: tuple[tuple[str, str], ...] | None = None
+        self._prepared_key: tuple[tuple[str, str, str], ...] | None = None
         self._prepare_lock = RLock()
 
     def _prepare(self, candidates: tuple[NameCandidate, ...]) -> tuple[_Prepared, ...]:
-        key = tuple((c.entity_id, c.name) for c in candidates)
+        key = tuple((c.kind, c.entity_id, c.name) for c in candidates)
         with self._prepare_lock:
             if key == self._prepared_key:
                 return self._prepared
             prepared: list[_Prepared] = []
-            seen: set[tuple[str, str]] = set()
+            seen: set[tuple[str, str, str]] = set()
             for candidate in candidates:
                 raw_tokens = _tokens(candidate.name)
                 if not raw_tokens:
                     continue
                 words = tuple(_fold(t.value) for t in raw_tokens)
-                identity = (candidate.entity_id, candidate.name.casefold())
+                identity = (candidate.kind, candidate.entity_id, candidate.name.casefold())
                 if identity in seen:
                     continue
                 seen.add(identity)
@@ -378,9 +387,6 @@ class Normalizer:
                 comparison_words = list(target.tokens)
                 for n in changed:
                     source = phrase[n].value
-                    if len(source) < 6 or len(target.tokens[n]) < 6:
-                        safe = False
-                        break
                     analyses = tuple(
                         a for a in self._morphology.analyze(source) if a.known and a.score >= 0.05
                     )
@@ -398,10 +404,20 @@ class Normalizer:
                         safe = False
                         break
                     if analyses and target_analyses:
+                        if not any(
+                            _fold(a.lemma) == _fold(b.lemma) and a.pos == b.pos
+                            for a in analyses
+                            for b in target_analyses
+                        ):
+                            safe = False
+                            break
                         # A verified inflection is not a spelling error. Keep
                         # it in the comparison rather than charging its ending.
                         comparison_words[n] = _fold(source)
                     elif not analyses and target_analyses:
+                        if len(source) < 6 or len(target.tokens[n]) < 6:
+                            safe = False
+                            break
                         # Generate forms from the KNOWN target, not guessed
                         # parses of the typo (стиралной is guessed as a noun).
                         forms = tuple(
@@ -417,6 +433,9 @@ class Normalizer:
                                 forms,
                                 key=lambda form: (normalized_similarity(_fold(source), form), form),
                             )
+                    elif len(source) < 6 or len(target.tokens[n]) < 6:
+                        safe = False
+                        break
                 if not safe:
                     continue
                 comparisons += 1
@@ -426,18 +445,18 @@ class Normalizer:
                 right = " ".join(comparison_words)
                 score = normalized_similarity(left, right)
                 found.append((i, i + count, target.candidate, score))
-        # Collapse aliases by entity before measuring confidence. A name shared
-        # by distinct entities is deliberately not eligible for selection.
-        groups: dict[tuple[int, int], dict[str, tuple[NameCandidate, float]]] = {}
+        # Collapse aliases by typed target before measuring confidence. IDs
+        # shared by different registries still represent independent targets.
+        groups: dict[tuple[int, int], dict[tuple[str, str], tuple[NameCandidate, float]]] = {}
         for start, end, candidate, score in found:
             group = groups.setdefault((start, end), {})
-            old = group.get(candidate.entity_id)
+            old = group.get(candidate.identity)
             if old is None or (score, candidate.name.casefold(), candidate.name) > (
                 old[1],
                 old[0].name.casefold(),
                 old[0].name,
             ):
-                group[candidate.entity_id] = (candidate, score)
+                group[candidate.identity] = (candidate, score)
         decisions: list[NormalizationDecision] = []
         edits: list[tuple[int, int, str]] = []
         remaining = set(groups)
@@ -466,7 +485,7 @@ class Normalizer:
                             for candidate, _ in groups[span].values()
                         },
                         key=lambda candidate: (
-                            candidate.entity_id,
+                            candidate.identity,
                             candidate.name.casefold(),
                             candidate.name,
                         ),
@@ -481,7 +500,7 @@ class Normalizer:
             start, end = maximal_spans[0]
             group = groups[(start, end)]
             ranked = sorted(
-                group.values(), key=lambda x: (-x[1], x[0].entity_id, x[0].name.casefold())
+                group.values(), key=lambda x: (-x[1], x[0].identity, x[0].name.casefold())
             )
             best, score = ranked[0]
             runner = ranked[1][1] if len(ranked) > 1 else None
@@ -501,7 +520,7 @@ class Normalizer:
                     p.candidate for p in prepared if _fold(p.candidate.name) == _fold(best.name)
                 )
             )
-            if len({candidate.entity_id for candidate in exact_owners}) > 1:
+            if len({candidate.identity for candidate in exact_owners}) > 1:
                 decisions.append(
                     NormalizationDecision(
                         "ambiguous_candidates",

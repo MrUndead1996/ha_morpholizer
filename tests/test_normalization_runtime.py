@@ -145,6 +145,91 @@ def test_real_local_intent_normalizes_name_and_dispatches_once(
     _run(tmp_path, check)
 
 
+@pytest.mark.parametrize(
+    ("kind", "query", "expected"),
+    [
+        ("area", "Включи свет в спальне", "Включи свет в Спальня"),
+        ("area_alias", "Включи свет в гостевой комнате", "Включи свет в Гостевая комната"),
+        ("area_fuzzy", "Включи свет в гостеваая комната", "Включи свет в Гостевая комната"),
+        ("floor", "Включи свет на втором этаже", "Включи свет на Второй этаж"),
+        ("floor_alias", "Включи свет на верхнем этаже", "Включи свет на Верхний этаж"),
+        ("floor_fuzzy", "Включи свет на мансарднном этаже", "Включи свет на Мансардный этаж"),
+    ],
+)
+def test_location_normalization_executes_only_exposed_targets(
+    tmp_path: Path, kind: str, query: str, expected: str
+) -> None:
+    async def check(hass: HomeAssistant) -> None:
+        catalog = await _catalog(hass, "light.target", "Люстра")
+        areas, floors = area_registry.async_get(hass), floor_registry.async_get(hass)
+        upper = floors.async_create("Второй этаж", aliases={"Верхний этаж", "Мансардный этаж"})
+        lower = floors.async_create("Первый этаж")
+        bedroom = areas.async_create(
+            "Спальня", aliases={"Гостевая комната"}, floor_id=upper.floor_id
+        )
+        kitchen = areas.async_create("Кухня", floor_id=lower.floor_id)
+        registry = er.async_get(hass)
+        registry.async_update_entity("light.target", area_id=bedroom.id)
+        # A hidden entity in the requested location must not become exposed;
+        # an exposed entity in another area/floor must not be affected either.
+        for entity_id, area_id, exposed in (
+            ("light.hidden", bedroom.id, False),
+            ("light.other", kitchen.id, True),
+        ):
+            registry.async_get_or_create(
+                "light",
+                "test",
+                entity_id,
+                suggested_object_id=entity_id.split(".")[1],
+                original_name=entity_id,
+            )
+            registry.async_update_entity(entity_id, area_id=area_id)
+            hass.states.async_set(entity_id, "off", {"friendly_name": entity_id})
+            async_expose_entity(hass, "conversation", entity_id, exposed)
+        await hass.async_block_till_done()
+        entry = _entry()
+        entry.runtime_data = catalog
+        proxy = MorpholizerConversationEntity(
+            entry, Normalizer(Morphology(), fuzzy=FuzzySettings(enabled=kind.endswith("fuzzy")))
+        )
+        proxy.entity_id = "conversation.morpholizer"
+        proxy.hass = hass
+        assert await proxy._async_normalize(query, "ru") == expected
+        await get_agent_manager(hass).async_setup_default_agent(DefaultAgent(hass))
+        intent.async_register(
+            hass, OnOffIntentHandler(intent.INTENT_TURN_ON, "homeassistant", "turn_on")
+        )
+        calls = []
+
+        async def turn_on(call):
+            calls.append(call)
+
+        hass.services.async_register("homeassistant", "turn_on", turn_on)
+        hass.services.async_register("light", "turn_on", turn_on)
+        fallback = AsyncMock()
+        user_input = conversation.ConversationInput(
+            text=query,
+            context=Context(),
+            conversation_id=None,
+            device_id=None,
+            satellite_id=None,
+            language="ru",
+            agent_id=proxy.entity_id,
+        )
+        with patch.object(conversation, "async_converse", new=fallback):
+            result = await proxy._async_handle_message(
+                user_input, ChatLog(hass=hass, conversation_id="location-test")
+            )
+        assert result.response.response_type is intent.IntentResponseType.ACTION_DONE
+        assert len(calls) == 1
+        assert calls[0].data["entity_id"] == "light.target"
+        assert calls[0].context is user_input.context
+        fallback.assert_not_awaited()
+        catalog.async_stop()
+
+    _run(tmp_path, check)
+
+
 def test_stale_catalog_generation_retries_without_removed_candidate(tmp_path: Path) -> None:
     class BlockingNormalizer:
         def __init__(self):
@@ -175,6 +260,53 @@ def test_stale_catalog_generation_retries_without_removed_candidate(tmp_path: Pa
             assert await asyncio.wait_for(worker, 5) == "машинку"
             assert len(normalizer.candidates) == 2
             assert normalizer.candidates[0] and not normalizer.candidates[1]
+        finally:
+            normalizer.release.set()
+            if not worker.done():
+                await worker
+            catalog.async_stop()
+
+    _run(tmp_path, check)
+
+
+@pytest.mark.parametrize("kind", ["area", "floor"])
+def test_location_rename_during_analysis_rejects_stale_result(tmp_path: Path, kind: str) -> None:
+    class BlockingNormalizer:
+        def __init__(self):
+            self.normalizer = Normalizer(Morphology())
+            self.started = threading.Event()
+            self.release = threading.Event()
+            self.calls = 0
+
+        def normalize(self, text, candidates):
+            self.calls += 1
+            if self.calls == 1:
+                self.started.set()
+                assert self.release.wait(5)
+            return self.normalizer.normalize(text, candidates)
+
+    async def check(hass: HomeAssistant) -> None:
+        catalog = await _catalog(hass, "switch.washer", "Стиральная машинка")
+        registry = (
+            area_registry.async_get(hass) if kind == "area" else floor_registry.async_get(hass)
+        )
+        location = registry.async_create("Верхний этаж")
+        location_id = location.id if kind == "area" else location.floor_id
+        await hass.async_block_till_done()
+        entry = _entry()
+        entry.runtime_data = catalog
+        normalizer = BlockingNormalizer()
+        proxy = MorpholizerConversationEntity(entry, normalizer)
+        proxy.hass = hass
+        source = "Свет на верхнем этаже"
+        worker = asyncio.create_task(proxy._async_normalize(source, "ru"))
+        try:
+            assert await asyncio.to_thread(normalizer.started.wait, 3)
+            registry.async_update(location_id, name="Нижний этаж")
+            await hass.async_block_till_done()
+            normalizer.release.set()
+            assert await asyncio.wait_for(worker, 5) == source
+            assert normalizer.calls == 2
         finally:
             normalizer.release.set()
             if not worker.done():

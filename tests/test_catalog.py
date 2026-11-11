@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import floor_registry as fr
 
 from custom_components.morpholizer import catalog as catalog_module
 from custom_components.morpholizer.catalog import EntityCatalog
@@ -30,6 +31,7 @@ def _run(tmp_path: Path, check) -> None:
             dr.async_setup(hass)
             await dr.async_load(hass, load_empty=True)
             await ar.async_load(hass, load_empty=True)
+            await fr.async_load(hass, load_empty=True)
             await er.async_load(hass, load_empty=True)
             exposure = ExposedEntities(hass)
             hass.data[DATA_EXPOSED_ENTITIES] = exposure
@@ -91,6 +93,63 @@ def test_catalog_indexes_exposed_entity_names_and_preserves_collisions(tmp_path:
         with pytest.raises(AttributeError):
             snapshot.entries.append(object())
         catalog.async_stop()
+
+    _run(tmp_path, check)
+
+
+def test_locations_include_all_registry_names_and_aliases(tmp_path: Path) -> None:
+    async def check(hass: HomeAssistant) -> None:
+        # Empty areas/floors are valid HA targets too; they do not expose entities.
+        area = ar.async_get(hass).async_create("Кухня", aliases={"Столовая", "  "})
+        floor = fr.async_get(hass).async_create("Второй этаж", aliases={"Верхний этаж"})
+        catalog = EntityCatalog(hass)
+        await catalog.async_start()
+        snapshot = catalog.snapshot
+        assert snapshot.entries == ()
+        assert {(p.kind, p.id): p.names for p in snapshot.locations} == {
+            ("area", area.id): ("Кухня", "Столовая"),
+            ("floor", floor.floor_id): ("Второй этаж", "Верхний этаж"),
+        }
+        with pytest.raises(AttributeError):
+            snapshot.locations[0].names += ("test",)
+        catalog.async_stop()
+        assert catalog.snapshot.locations == ()
+
+    _run(tmp_path, check)
+
+
+def test_location_changes_publish_new_generations_without_restart(tmp_path: Path) -> None:
+    async def check(hass: HomeAssistant) -> None:
+        areas, floors = ar.async_get(hass), fr.async_get(hass)
+        catalog = EntityCatalog(hass)
+        await catalog.async_start()
+        initial = catalog.snapshot
+        area = areas.async_create("Кухня")
+        floor = floors.async_create("Второй этаж")
+        await hass.async_block_till_done()
+        created = catalog.snapshot
+        assert len(created.locations) == 2
+        assert initial.locations == ()
+        areas.async_update(
+            area.id, name="Столовая", aliases={"Обеденная зона"}, floor_id=floor.floor_id
+        )
+        floors.async_update(floor.floor_id, name="Верхний этаж", aliases={"Мансарда"})
+        await hass.async_block_till_done()
+        renamed = catalog.snapshot
+        assert {p.names for p in renamed.locations} == {
+            ("Столовая", "Обеденная зона"),
+            ("Верхний этаж", "Мансарда"),
+        }
+        assert {p.names for p in created.locations} == {("Кухня",), ("Второй этаж",)}
+        areas.async_delete(area.id)
+        floors.async_delete(floor.floor_id)
+        await hass.async_block_till_done()
+        assert catalog.snapshot.locations == ()
+        catalog.async_stop()
+        stopped = catalog.snapshot
+        floors.async_create("Новый этаж")
+        await hass.async_block_till_done()
+        assert catalog.snapshot is stopped
 
     _run(tmp_path, check)
 

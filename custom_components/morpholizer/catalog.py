@@ -1,9 +1,10 @@
-"""Immutable, Assist-exposed entity name catalog."""
+"""Immutable catalog of exposed entities and HA areas/floors."""
 
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
+from typing import Literal
 
 from homeassistant.components.homeassistant.exposed_entities import (
     async_listen_entity_updates,
@@ -14,6 +15,7 @@ from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import floor_registry as fr
 from homeassistant.helpers.intent import async_get_entity_aliases
 
 
@@ -29,11 +31,21 @@ class CatalogEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class LocationEntry:
+    """One area or floor, preserving its registry name and aliases."""
+
+    kind: Literal["area", "floor"]
+    id: str
+    names: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class CatalogSnapshot:
     """A complete immutable catalog generation."""
 
     entries: tuple[CatalogEntry, ...]
     by_name: Mapping[str, tuple[CatalogEntry, ...]]
+    locations: tuple[LocationEntry, ...] = ()
 
 
 def _key(name: str) -> str:
@@ -42,7 +54,7 @@ def _key(name: str) -> str:
 
 
 class EntityCatalog:
-    """Maintain a snapshot of currently Assist-exposed entities."""
+    """Maintain exposed entities and all locations, like HA's local agent."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
@@ -70,6 +82,7 @@ class EntityCatalog:
                 er.EVENT_ENTITY_REGISTRY_UPDATED,
                 ar.EVENT_AREA_REGISTRY_UPDATED,
                 dr.EVENT_DEVICE_REGISTRY_UPDATED,
+                fr.EVENT_FLOOR_REGISTRY_UPDATED,
             ):
                 self._unsubscribers.append(
                     self.hass.bus.async_listen(event_type, self._on_registry)
@@ -136,6 +149,7 @@ class EntityCatalog:
         entity_registry = er.async_get(self.hass)
         area_registry = ar.async_get(self.hass)
         device_registry = dr.async_get(self.hass)
+        floor_registry = fr.async_get(self.hass)
         entries: list[CatalogEntry] = []
         names_index: defaultdict[str, list[CatalogEntry]] = defaultdict(list)
 
@@ -175,7 +189,28 @@ class EntityCatalog:
             for key in dict.fromkeys(_key(name) for name in names):
                 names_index[key].append(entry)
 
+        # HA's local agent offers every registered area/floor, including empty
+        # ones. Exposure remains an entity-level check at intent execution.
+        locations = tuple(
+            LocationEntry(
+                kind,
+                location.id if kind == "area" else location.floor_id,
+                tuple(
+                    dict.fromkeys(
+                        name.strip()
+                        for name in (location.name, *sorted(location.aliases))
+                        if name.strip()
+                    )
+                ),
+            )
+            for kind, registry_entries in (
+                ("area", area_registry.async_list_areas()),
+                ("floor", floor_registry.async_list_floors()),
+            )
+            for location in registry_entries
+        )
         self._snapshot = CatalogSnapshot(
             tuple(entries),
             MappingProxyType({key: tuple(value) for key, value in names_index.items()}),
+            locations,
         )

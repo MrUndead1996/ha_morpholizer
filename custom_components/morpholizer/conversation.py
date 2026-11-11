@@ -131,6 +131,10 @@ class MorpholizerConversationEntity(ConversationEntity):
             NameCandidate(entry.entity_id, name)
             for entry in snapshot.entries
             for name in entry.names
+        ) + tuple(
+            NameCandidate(location.id, name, kind=location.kind)
+            for location in snapshot.locations
+            for name in location.names
         )
         assert self._normalizer is not None
         return self._normalizer.normalize(text, candidates).text
